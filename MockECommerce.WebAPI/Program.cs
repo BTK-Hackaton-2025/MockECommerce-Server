@@ -22,11 +22,11 @@ var builder = WebApplication.CreateBuilder(args);
 var configuration = builder.Configuration;
 
 // Build connection string from environment variables or fallback to appsettings.json
-var dbHost = Environment.GetEnvironmentVariable("DB_HOST"); //?? "localhost";
-var dbPort = Environment.GetEnvironmentVariable("DB_PORT"); //?? "5432";
-var dbName = Environment.GetEnvironmentVariable("DB_NAME"); // ?? "MockECommerce-DB";
-var dbUsername = Environment.GetEnvironmentVariable("DB_USERNAME"); // ?? "postgres";
-var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD"); // configuration.GetConnectionString("Default")?.Split("Password=")[1]?.Split(";")[0] ?? "4Lt0g";
+var dbHost = Environment.GetEnvironmentVariable("DB_HOST");
+var dbPort = Environment.GetEnvironmentVariable("DB_PORT");
+var dbName = Environment.GetEnvironmentVariable("DB_NAME");
+var dbUsername = Environment.GetEnvironmentVariable("DB_USERNAME");
+var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
 
 var connectionString = $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUsername};Password={dbPassword}";
 
