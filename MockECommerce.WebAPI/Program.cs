@@ -134,6 +134,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddAutoMapper(cfg => {
     cfg.AddProfile<MockECommerce.BusinessLayer.Mapping.CategoryMapping>();
     cfg.AddProfile<MockECommerce.BusinessLayer.Mapping.ProductMapping>();
+    cfg.AddProfile<MockECommerce.BusinessLayer.Mapping.OrderMapping>();
 });
 
 builder.Services.AddScoped<IAuthService, AuthManager>();
@@ -144,6 +145,9 @@ builder.Services.AddScoped<ICategoryDal, CategoryRepository>();
 
 builder.Services.AddScoped<IProductService, ProductManager>();
 builder.Services.AddScoped<IProductDal, ProductRepository>();
+
+builder.Services.AddScoped<IOrderService, OrderManager>();
+builder.Services.AddScoped<IOrderDal, OrderRepository>();
 
 builder.Services.AddControllers();
 

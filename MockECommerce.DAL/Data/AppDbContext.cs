@@ -20,6 +20,7 @@ public class AppDbContext
     public DbSet<SellerApiKey>          SellerApiKeys          { get; set; }
     public DbSet<Category>              Categories             { get; set; }
     public DbSet<Product>               Products               { get; set; }
+    public DbSet<Order>                 Orders                 { get; set; }
     public DbSet<ProductImage>          ProductImages          { get; set; }
     public DbSet<MarketplaceCredential> MarketplaceCredentials { get; set; }
 
@@ -32,6 +33,7 @@ public class AppDbContext
         ConfigureSellerProfile(b);
         ConfigureSellerApiKey(b);
         ConfigureProduct(b);
+        ConfigureOrder(b);
         ConfigureCategory(b);
         ConfigureProductImage(b);
         ConfigureMarketplaceCredential(b);
@@ -136,6 +138,36 @@ public class AppDbContext
                 entity.HasOne(p => p.Category)
                       .WithMany(c => c.Products)
                       .HasForeignKey(p => p.CategoryId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+        }
+
+        private void ConfigureOrder(ModelBuilder b)
+        {
+            b.Entity<Order>(entity =>
+            {
+                entity.ToTable("Orders");
+                entity.HasKey(x => x.Id);
+
+                entity.Property(o => o.OrderDate)
+                      .HasDefaultValueSql("NOW() AT TIME ZONE 'UTC'");
+
+                // ---------- Status column configuration ----------
+                entity.Property(o => o.Status)
+                      .HasMaxLength(50)
+                      .IsRequired();
+
+                // ---------- Indexes for Order queries ----------
+                entity.HasIndex(o => o.ProductId)
+                      .HasDatabaseName("IX_Orders_ProductId");
+
+                entity.HasIndex(o => o.CustomerId)
+                      .HasDatabaseName("IX_Orders_CustomerId");
+
+                // ---------- 1-N  Product ↔ Order ----------
+                entity.HasOne(o => o.Product)
+                      .WithMany()
+                      .HasForeignKey(o => o.ProductId)
                       .OnDelete(DeleteBehavior.Restrict);
             });
         }
