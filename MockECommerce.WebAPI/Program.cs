@@ -27,10 +27,14 @@ var configuration = builder.Configuration;
 builder.Services.AddCors(options
     =>
 {
-    options.AddPolicy("VercelDev", policy =>
+    options.AddPolicy("VercelandDev", policy =>
     {
         policy.WithOrigins(
-                "https://mock-e-commerce-front-co9f.vercel.app/" //
+                "https://mock-e-commerce-front-co9f.vercel.app/",
+                "http://127.0.0.1:8080",//
+                "http://localhost:5000",
+                "http://localhost:8080",
+		        "http://localhost:8082"
             )
             .AllowAnyHeader()
             .AllowAnyMethod();
@@ -306,7 +310,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseRouting();
-app.UseCors("VercelDev");
+app.UseCors("VercelandDev");
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // app.UseHttpsRedirection();
