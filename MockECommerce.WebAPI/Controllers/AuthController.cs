@@ -56,6 +56,19 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("login-seller")]
+    public async Task<IActionResult> LoginSellerAsync([FromBody] LoginSellerDto loginSellerDto)
+    {
+        if (loginSellerDto == null)
+            return BadRequest("Giriş bilgileri eksik.");
+
+        var result = await _authService.LoginSellerAsync(loginSellerDto);
+        if (!result.IsAuthenticated)
+            return Unauthorized(result.Message);
+
+        return Ok(result);
+    }
+
     /// <summary>
     /// Test endpoint to verify token and see user claims
     /// </summary>

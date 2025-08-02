@@ -232,7 +232,7 @@ public class AuthManager : IAuthService
             return new AuthResponseDto
             {
                 IsAuthenticated = false,
-                Message = "Kullanıcı adı veya şifre hatalı."
+                Message = "Satıcı adı veya şifre hatalı."
             };
         }
 
@@ -254,6 +254,39 @@ public class AuthManager : IAuthService
             Message = "Giriş başarılı."
         };
     }
+
+    public async Task<AuthResponseDto> LoginSellerAsync(LoginSellerDto loginSellerDto)
+    {
+        const string invalid = "Kullanıcı adı veya şifre hatalı.";
+
+        var user = await _userManager.FindByEmailAsync(loginSellerDto.Email);
+        if (user == null)
+            return new AuthResponseDto { IsAuthenticated = false, Message = invalid };
+
+        var passOk = await _userManager.CheckPasswordAsync(user, loginSellerDto.Password);
+        if (!passOk)
+            return new AuthResponseDto { IsAuthenticated = false, Message = invalid };
+
+
+        var isSeller = await _userManager.IsInRoleAsync(user, "Seller");
+        if (!isSeller)
+            return new AuthResponseDto { IsAuthenticated = false, Message = "Bu kullanıcı bir satıcı değil." };
+
+
+        var token = await GenerateJwtTokenAsync(user /*, role: "Seller" ya da claims ekle */);
+
+        return new AuthResponseDto
+        {
+            IsAuthenticated = true,
+            Token = token,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Email = user.Email,
+            Role = "Seller",
+            Message = "Giriş başarılı."
+        };
+    }
+
 
     private async Task<string> GenerateJwtTokenAsync(AppUser user)
     {

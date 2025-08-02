@@ -1,4 +1,6 @@
 using System.Text;
+using System.Text.Json;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +23,21 @@ var builder = WebApplication.CreateBuilder(args);
 
 var configuration = builder.Configuration;
 
+
+builder.Services.AddCors(options
+    =>
+{
+    options.AddPolicy("VercelDev", policy =>
+    {
+        policy.WithOrigins(
+                "https://mock-e-commerce-front-co9f.vercel.app/" //
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+
+});
+
 // Build connection string from environment variables or fallback to appsettings.json
 var dbHost = Environment.GetEnvironmentVariable("DB_HOST");
 var dbPort = Environment.GetEnvironmentVariable("DB_PORT");
@@ -31,6 +48,73 @@ var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
 var connectionString = $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUsername};Password={dbPassword}";
 
 // Add services to the container.
+
+builder.Services.AddRateLimiter(options =>
+{
+    // 1) GLOBAL LEVEL: Tüm isteklere 1 dakikada en fazla 500 istek
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    {
+        // Burada sabit bir partition key olarak "global" kullanıyoruz.
+        return RateLimitPartition.GetSlidingWindowLimiter<string>(
+            partitionKey: "global",
+            factory: (string _) => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 500,
+                Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 5,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }
+        );
+    });
+
+
+
+    // 2) Register: Aynı IP için 30 dakikada en fazla 5 istek
+    options.AddPolicy("RegisterPolicy", context =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "anon",
+            factory: partition => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(30),
+                SegmentsPerWindow = 6,       // 6 segment x 5 dakika = 30 dakika
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }
+        )
+    );
+
+    // 3) Login: Aynı IP için 5 dakikada en fazla 7 istek
+    options.AddPolicy("LoginPolicy", context =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "anon",
+            factory: partition => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 7,
+                Window = TimeSpan.FromMinutes(5),
+                SegmentsPerWindow = 5,       // 5 segment x 1 dakika = 5 dakika
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }
+        )
+    );
+
+
+    // 4) Aşım durumunda 429 + özel mesaj dönelim
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "application/json";
+        var payload = JsonSerializer.Serialize(new
+        {
+            message = "Çok fazla istek attınız. Lütfen biraz bekleyip tekrar deneyin."
+        });
+        await context.HttpContext.Response.WriteAsync(payload, cancellationToken);
+    };
+
+
+});
 
 builder.Services.AddDbContext<AppDbContext>(opts =>
     opts.UseNpgsql(connectionString));
@@ -134,6 +218,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddAutoMapper(cfg => {
     cfg.AddProfile<MockECommerce.BusinessLayer.Mapping.CategoryMapping>();
     cfg.AddProfile<MockECommerce.BusinessLayer.Mapping.ProductMapping>();
+    cfg.AddProfile<MockECommerce.BusinessLayer.Mapping.OrderMapping>();
 });
 
 builder.Services.AddScoped<IAuthService, AuthManager>();
@@ -144,6 +229,9 @@ builder.Services.AddScoped<ICategoryDal, CategoryRepository>();
 
 builder.Services.AddScoped<IProductService, ProductManager>();
 builder.Services.AddScoped<IProductDal, ProductRepository>();
+
+builder.Services.AddScoped<IOrderService, OrderManager>();
+builder.Services.AddScoped<IOrderDal, OrderRepository>();
 
 builder.Services.AddControllers();
 
@@ -218,9 +306,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseRouting();
+app.UseCors("VercelDev");
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // app.UseHttpsRedirection();
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseMiddleware<ApiKeyAuthenticationMiddleware>();

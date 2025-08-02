@@ -22,4 +22,6 @@ public class RegisterSellerDto
     public string StoreName { get; set; } = default!;
 
     public string? LogoUrl { get; set; }
+
+    public string Role { get; set; } = "Seller";
 }
