@@ -175,6 +175,25 @@ public class ProductManager : IProductService
         return _mapper.Map<List<ProductDto>>(products);
     }
 
+    public async Task<List<ProductDto>> GetProductsByUserIdAsync(Guid userId)
+    {
+        if (userId == Guid.Empty)
+        {
+            throw new BusinessException("Geçersiz kullanıcı bilgisi", "INVALID_USER");
+        }
+        
+        // Get SellerProfile from userId
+        var sellerProfile = await _context.SellerProfiles
+            .FirstOrDefaultAsync(sp => sp.UserId == userId);
+        if (sellerProfile == null)
+        {
+            throw new BusinessException("Satıcı profili bulunamadı. Lütfen önce satıcı profilinizi oluşturun.", "SELLER_PROFILE_NOT_FOUND");
+        }
+        
+        var products = await _productDal.GetBySellerIdAsync(sellerProfile.Id);
+        return _mapper.Map<List<ProductDto>>(products);
+    }
+
     public async Task<List<ProductDto>> GetActiveProductsAsync()
     {
         var products = await _productDal.GetActiveProductsAsync();

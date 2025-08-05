@@ -49,6 +49,8 @@ public class ProductRepository : GenericRepository<Product>, IProductDal
     {
         return await _context.Products
             .Include(p => p.Category)
+            .Include(p => p.Seller)
+            .ThenInclude(s => s.User)
             .Include(p => p.Images)
             .Where(p => p.SellerId == sellerId)
             .OrderByDescending(p => p.CreatedAt)

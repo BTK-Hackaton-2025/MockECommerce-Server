@@ -15,6 +15,7 @@ public interface IProductService
     Task<ProductDto> GetProductByIdAsync(Guid id);
     Task<List<ProductDto>> GetProductsByCategoryIdAsync(Guid categoryId);
     Task<List<ProductDto>> GetProductsBySellerIdAsync(Guid sellerId);
+    Task<List<ProductDto>> GetProductsByUserIdAsync(Guid userId);
     Task<List<ProductDto>> GetActiveProductsAsync();
     Task<List<ProductDto>> GetProductsByStatusAsync(ProductStatus status);
     

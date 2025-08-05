@@ -84,8 +84,11 @@ public class ProductController : ControllerBase
     [Authorize(Roles = "Seller")]
     public async Task<IActionResult> GetMyProducts()
     {
-        var sellerId = GetCurrentUserId();
-        var products = await _productService.GetProductsBySellerIdAsync(sellerId);
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+            return BadRequest(new { success = false, message = "Geçersiz kullanıcı bilgisi" });
+            
+        var products = await _productService.GetProductsByUserIdAsync(userId);
         return Ok(new { success = true, data = products });
     }
 
