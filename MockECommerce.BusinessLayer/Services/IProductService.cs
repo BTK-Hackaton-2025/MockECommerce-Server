@@ -5,10 +5,21 @@ namespace MockECommerce.BusinessLayer.Services;
 
 public interface IProductService
 {
-    // CRUD Operations
-    Task<ProductDto> CreateProductAsync(CreateProductDto createProductDto, Guid sellerId);
-    Task<ProductDto> UpdateProductAsync(UpdateProductDto updateProductDto, Guid sellerId);
-    Task DeleteProductAsync(Guid id, Guid sellerId);
+    // CRUD Operations (using User ID)
+    Task<ProductDto> CreateProductAsync(CreateProductDto createProductDto, Guid userId);
+    Task<ProductDto> UpdateProductAsync(UpdateProductDto updateProductDto, Guid userId);
+    Task DeleteProductAsync(Guid id, Guid userId);
+    
+    // External API CRUD Operations (using SellerProfile ID directly)
+    Task<ProductDto> CreateProductBySellerIdAsync(CreateProductDto createProductDto, Guid sellerId);
+    
+    // Admin-only CRUD Operations
+    Task<ProductDto> UpdateProductAsAdminAsync(UpdateProductDto updateProductDto);
+    Task DeleteProductAsAdminAsync(Guid id);
+    
+    // External API CRUD Operations (with SellerProfile ID)
+    Task<ProductDto> UpdateProductBySellerIdAsync(UpdateProductDto updateProductDto, Guid sellerId);
+    Task DeleteProductBySellerIdAsync(Guid id, Guid sellerId);
     
     // Read Operations
     Task<List<ProductDto>> GetAllProductsAsync();

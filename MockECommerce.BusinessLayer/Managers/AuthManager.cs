@@ -297,7 +297,8 @@ public class AuthManager : IAuthService
         var roleClaims = new List<Claim>();
         foreach (var role in roles)
         {
-            roleClaims.Add(new Claim(ClaimTypes.Role, role));
+            // Program.cs'te tanımlı RoleClaimType ile uyumlu hale getir
+            roleClaims.Add(new Claim("http://schemas.microsoft.com/ws/2008/06/identity/claims/role", role));
         }
 
         // 2) Token için temel Claim'ler

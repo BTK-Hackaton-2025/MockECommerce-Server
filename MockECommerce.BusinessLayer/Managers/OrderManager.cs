@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using MockECommerce.BusinessLayer.Exceptions;
 using MockECommerce.BusinessLayer.Services;
 using MockECommerce.DAL.Abstract;
+using MockECommerce.DAL.Data;
 using MockECommerce.DAL.Entities;
 using MockECommerce.DtoLayer.OrderDtos;
 
@@ -15,12 +17,14 @@ public class OrderManager : IOrderService
     private readonly IOrderDal _orderDal;
     private readonly IProductDal _productDal;
     private readonly IMapper _mapper;
+    private readonly AppDbContext _context;
 
-    public OrderManager(IOrderDal orderDal, IProductDal productDal, IMapper mapper)
+    public OrderManager(IOrderDal orderDal, IProductDal productDal, IMapper mapper, AppDbContext context)
     {
         _orderDal = orderDal;
         _productDal = productDal;
         _mapper = mapper;
+        _context = context;
     }
 
     public async Task<OrderDto> CreateOrderAsync(CreateOrderDto createOrderDto)
@@ -119,5 +123,35 @@ public class OrderManager : IOrderService
         await _orderDal.UpdateAsync(order);
 
         return _mapper.Map<OrderDto>(order);
+    }
+
+    public async Task<List<OrderDto>> GetOrdersBySellerUserIdAsync(Guid userId)
+    {
+        if (userId == Guid.Empty)
+        {
+            throw new BusinessException("Invalid user ID.", "INVALID_USER_ID");
+        }
+
+        // Get SellerProfile from userId
+        var sellerProfile = await _context.SellerProfiles
+            .FirstOrDefaultAsync(sp => sp.UserId == userId);
+        if (sellerProfile == null)
+        {
+            throw new BusinessException("Seller profile not found.", "SELLER_PROFILE_NOT_FOUND");
+        }
+
+        var orders = await _orderDal.GetOrdersBySellerIdAsync(sellerProfile.Id);
+        return _mapper.Map<List<OrderDto>>(orders);
+    }
+
+    public async Task<bool> SellerHasAccessToSellerIdAsync(Guid userId, Guid sellerId)
+    {
+        if (userId == Guid.Empty || sellerId == Guid.Empty)
+            return false;
+
+        var sellerProfile = await _context.SellerProfiles
+            .FirstOrDefaultAsync(sp => sp.UserId == userId);
+        
+        return sellerProfile?.Id == sellerId;
     }
 }

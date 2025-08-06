@@ -88,7 +88,68 @@ public class ProductManager : IProductService
         return _mapper.Map<ProductDto>(createdProduct);
     }
 
-    public async Task<ProductDto> UpdateProductAsync(UpdateProductDto updateProductDto, Guid sellerId)
+    public async Task<ProductDto> CreateProductBySellerIdAsync(CreateProductDto createProductDto, Guid sellerId)
+    {
+        // Validate category exists
+        var category = await _categoryDal.GetByIdAsync(createProductDto.CategoryId);
+        if (category == null)
+        {
+            throw new NotFoundException("Belirtilen kategori bulunamadı", "CATEGORY_NOT_FOUND");
+        }
+
+        // Validate seller ID
+        if (sellerId == Guid.Empty)
+        {
+            throw new BusinessException("Geçersiz satıcı bilgisi", "INVALID_SELLER");
+        }
+
+        // Verify seller profile exists
+        var sellerProfile = await _context.SellerProfiles.FindAsync(sellerId);
+        if (sellerProfile == null)
+        {
+            throw new BusinessException("Satıcı profili bulunamadı.", "SELLER_PROFILE_NOT_FOUND");
+        }
+
+        // Map DTO to entity
+        var product = _mapper.Map<Product>(createProductDto);
+        product.Id = Guid.NewGuid();
+        product.SellerId = sellerId; // Use SellerProfile.Id directly
+        product.CreatedAt = DateTime.UtcNow;
+        product.UpdatedAt = DateTime.UtcNow;
+
+        // Handle images
+        if (createProductDto.Images?.Any() == true)
+        {
+            var images = new List<ProductImage>();
+            var hasPrimary = createProductDto.Images.Any(i => i.IsPrimary);
+            
+            for (int i = 0; i < createProductDto.Images.Count; i++)
+            {
+                var imageDto = createProductDto.Images[i];
+                var image = _mapper.Map<ProductImage>(imageDto);
+                image.Id = Guid.NewGuid();
+                image.ProductId = product.Id;
+                
+                // If no image is marked as primary, make the first one primary
+                if (!hasPrimary && i == 0)
+                {
+                    image.IsPrimary = true;
+                }
+                
+                images.Add(image);
+            }
+            
+            product.Images = images;
+        }
+
+        await _productDal.CreateAsync(product);
+        
+        // Get the created product with details
+        var createdProduct = await _productDal.GetByIdWithDetailsAsync(product.Id);
+        return _mapper.Map<ProductDto>(createdProduct);
+    }
+
+    public async Task<ProductDto> UpdateProductAsync(UpdateProductDto updateProductDto, Guid userId)
     {
         var existingProduct = await _productDal.GetByIdWithDetailsAsync(updateProductDto.Id);
         if (existingProduct == null)
@@ -96,7 +157,142 @@ public class ProductManager : IProductService
             throw new NotFoundException("Ürün bulunamadı", "PRODUCT_NOT_FOUND");
         }
 
+        // Validate user ID
+        if (userId == Guid.Empty)
+        {
+            throw new BusinessException("Geçersiz kullanıcı bilgisi", "INVALID_USER");
+        }
+
+        // Get seller profile from user ID
+        var sellerProfile = await _context.SellerProfiles
+            .FirstOrDefaultAsync(sp => sp.UserId == userId);
+        if (sellerProfile == null)
+        {
+            throw new BusinessException("Satıcı profili bulunamadı. Lütfen önce satıcı profilinizi oluşturun.", "SELLER_PROFILE_NOT_FOUND");
+        }
+
         // Check if the seller owns this product
+        if (existingProduct.SellerId != sellerProfile.Id)
+        {
+            throw new BusinessException("Bu ürünü güncelleme yetkiniz yok", "UNAUTHORIZED_PRODUCT_UPDATE");
+        }
+
+        // Validate category exists if changed
+        if (existingProduct.CategoryId != updateProductDto.CategoryId)
+        {
+            var category = await _categoryDal.GetByIdAsync(updateProductDto.CategoryId);
+            if (category == null)
+            {
+                throw new NotFoundException("Belirtilen kategori bulunamadı", "CATEGORY_NOT_FOUND");
+            }
+        }
+
+        // Update product properties
+        _mapper.Map(updateProductDto, existingProduct);
+        existingProduct.UpdatedAt = DateTime.UtcNow;
+
+        // Handle image updates
+        if (updateProductDto.Images?.Any() == true)
+        {
+            await UpdateProductImagesAsync(existingProduct, updateProductDto.Images);
+        }
+
+        await _productDal.UpdateAsync(existingProduct);
+        
+        // Get updated product with details
+        var updatedProduct = await _productDal.GetByIdWithDetailsAsync(existingProduct.Id);
+        return _mapper.Map<ProductDto>(updatedProduct);
+    }
+
+    public async Task DeleteProductAsync(Guid id, Guid userId)
+    {
+        var product = await _productDal.GetByIdAsync(id);
+        if (product == null)
+        {
+            throw new NotFoundException("Ürün bulunamadı", "PRODUCT_NOT_FOUND");
+        }
+
+        // Validate user ID
+        if (userId == Guid.Empty)
+        {
+            throw new BusinessException("Geçersiz kullanıcı bilgisi", "INVALID_USER");
+        }
+
+        // Get seller profile from user ID
+        var sellerProfile = await _context.SellerProfiles
+            .FirstOrDefaultAsync(sp => sp.UserId == userId);
+        if (sellerProfile == null)
+        {
+            throw new BusinessException("Satıcı profili bulunamadı. Lütfen önce satıcı profilinizi oluşturun.", "SELLER_PROFILE_NOT_FOUND");
+        }
+
+        // Check if the seller owns this product
+        if (product.SellerId != sellerProfile.Id)
+        {
+            throw new BusinessException("Bu ürünü silme yetkiniz yok", "UNAUTHORIZED_PRODUCT_DELETE");
+        }
+
+        await _productDal.DeleteAsync(product);
+    }
+
+    public async Task<ProductDto> UpdateProductAsAdminAsync(UpdateProductDto updateProductDto)
+    {
+        var existingProduct = await _productDal.GetByIdWithDetailsAsync(updateProductDto.Id);
+        if (existingProduct == null)
+        {
+            throw new NotFoundException("Ürün bulunamadı", "PRODUCT_NOT_FOUND");
+        }
+
+        // Admin can update any product without ownership check
+        
+        // Validate category exists if changed
+        if (existingProduct.CategoryId != updateProductDto.CategoryId)
+        {
+            var category = await _categoryDal.GetByIdAsync(updateProductDto.CategoryId);
+            if (category == null)
+            {
+                throw new NotFoundException("Belirtilen kategori bulunamadı", "CATEGORY_NOT_FOUND");
+            }
+        }
+
+        // Update product properties
+        _mapper.Map(updateProductDto, existingProduct);
+        existingProduct.UpdatedAt = DateTime.UtcNow;
+
+        // Handle image updates
+        if (updateProductDto.Images?.Any() == true)
+        {
+            await UpdateProductImagesAsync(existingProduct, updateProductDto.Images);
+        }
+
+        await _productDal.UpdateAsync(existingProduct);
+        
+        // Get updated product with details
+        var updatedProduct = await _productDal.GetByIdWithDetailsAsync(existingProduct.Id);
+        return _mapper.Map<ProductDto>(updatedProduct);
+    }
+
+    public async Task DeleteProductAsAdminAsync(Guid id)
+    {
+        var product = await _productDal.GetByIdAsync(id);
+        if (product == null)
+        {
+            throw new NotFoundException("Ürün bulunamadı", "PRODUCT_NOT_FOUND");
+        }
+
+        // Admin can delete any product without ownership check
+        await _productDal.DeleteAsync(product);
+    }
+
+    public async Task<ProductDto> UpdateProductBySellerIdAsync(UpdateProductDto updateProductDto, Guid sellerId)
+    {
+        var existingProduct = await _productDal.GetByIdWithDetailsAsync(updateProductDto.Id);
+        if (existingProduct == null)
+        {
+            throw new NotFoundException("Ürün bulunamadı", "PRODUCT_NOT_FOUND");
+        }
+
+        // Check if the seller owns this product (using SellerProfile.Id directly)
         if (existingProduct.SellerId != sellerId)
         {
             throw new BusinessException("Bu ürünü güncelleme yetkiniz yok", "UNAUTHORIZED_PRODUCT_UPDATE");
@@ -129,7 +325,7 @@ public class ProductManager : IProductService
         return _mapper.Map<ProductDto>(updatedProduct);
     }
 
-    public async Task DeleteProductAsync(Guid id, Guid sellerId)
+    public async Task DeleteProductBySellerIdAsync(Guid id, Guid sellerId)
     {
         var product = await _productDal.GetByIdAsync(id);
         if (product == null)
@@ -137,7 +333,7 @@ public class ProductManager : IProductService
             throw new NotFoundException("Ürün bulunamadı", "PRODUCT_NOT_FOUND");
         }
 
-        // Check if the seller owns this product
+        // Check if the seller owns this product (using SellerProfile.Id directly)
         if (product.SellerId != sellerId)
         {
             throw new BusinessException("Bu ürünü silme yetkiniz yok", "UNAUTHORIZED_PRODUCT_DELETE");
