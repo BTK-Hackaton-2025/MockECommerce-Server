@@ -17,13 +17,15 @@ public class OrderMapping : Profile
             .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.OrderDate, opt => opt.Ignore())
             .ForMember(dest => dest.Status, opt => opt.MapFrom(src => "Pending"))
-            .ForMember(dest => dest.Product, opt => opt.Ignore());
+            .ForMember(dest => dest.Product, opt => opt.Ignore())
+            .ForMember(dest => dest.Customer, opt => opt.Ignore());
 
         // UpdateOrderDto to Order Entity
         CreateMap<UpdateOrderDto, Order>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.ProductId, opt => opt.Ignore())
             .ForMember(dest => dest.Product, opt => opt.Ignore())
+            .ForMember(dest => dest.Customer, opt => opt.Ignore())
             .ForMember(dest => dest.CustomerId, opt => opt.Ignore())
             .ForMember(dest => dest.OrderDate, opt => opt.Ignore());
     }
