@@ -505,4 +505,74 @@ public class ProductManager : IProductService
             }
         }
     }
+    
+    public async Task<object> CreateSellerProfileAsync(Guid userId, string storeName)
+    {
+        // Validate input
+        if (userId == Guid.Empty)
+        {
+            throw new BusinessException("Geçersiz kullanıcı bilgisi", "INVALID_USER");
+        }
+
+        if (string.IsNullOrWhiteSpace(storeName))
+        {
+            throw new BusinessException("Mağaza adı gereklidir", "INVALID_STORE_NAME");
+        }
+
+        // Check if seller profile already exists
+        var existingProfile = await _context.SellerProfiles
+            .FirstOrDefaultAsync(sp => sp.UserId == userId);
+        
+        if (existingProfile != null)
+        {
+            throw new BusinessException("Satıcı profili zaten mevcut", "SELLER_PROFILE_EXISTS");
+        }
+
+        // Create new seller profile
+        var sellerProfile = new MockECommerce.DAL.Entities.SellerProfile
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            StoreName = storeName.Trim(),
+            IsApproved = true, // Auto-approve for mock system
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.SellerProfiles.Add(sellerProfile);
+        await _context.SaveChangesAsync();
+
+        return new
+        {
+            id = sellerProfile.Id,
+            userId = sellerProfile.UserId,
+            storeName = sellerProfile.StoreName,
+            isApproved = sellerProfile.IsApproved,
+            createdAt = sellerProfile.CreatedAt
+        };
+    }
+
+    public async Task<object?> GetSellerProfileByUserIdAsync(Guid userId)
+    {
+        if (userId == Guid.Empty)
+        {
+            return null;
+        }
+
+        var sellerProfile = await _context.SellerProfiles
+            .FirstOrDefaultAsync(sp => sp.UserId == userId);
+        
+        if (sellerProfile == null)
+        {
+            return null;
+        }
+
+        return new
+        {
+            id = sellerProfile.Id,
+            userId = sellerProfile.UserId,
+            storeName = sellerProfile.StoreName,
+            isApproved = sellerProfile.IsApproved,
+            createdAt = sellerProfile.CreatedAt
+        };
+    }
 }

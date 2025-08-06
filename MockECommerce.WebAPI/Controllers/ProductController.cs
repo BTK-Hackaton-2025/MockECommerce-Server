@@ -123,6 +123,24 @@ public class ProductController : ControllerBase
     }
 
 
+    /// Seller profili oluşturur (Seller only)
+    [HttpPost("create-seller-profile")]
+    [Authorize(Roles = "Seller")]
+    public async Task<IActionResult> CreateSellerProfile([FromBody] CreateSellerProfileRequest request)
+    {
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == Guid.Empty)
+            return BadRequest(new { success = false, message = "Geçersiz kullanıcı bilgisi" });
+
+        // Check if seller profile already exists
+        var existingProfile = await _productService.GetSellerProfileByUserIdAsync(currentUserId);
+        if (existingProfile != null)
+            return BadRequest(new { success = false, message = "Satıcı profili zaten mevcut" });
+
+        var sellerProfile = await _productService.CreateSellerProfileAsync(currentUserId, request.StoreName);
+        return Ok(new { success = true, data = sellerProfile });
+    }
+
     /// Yeni ürün oluşturur (Admin ve Seller)
     [HttpPost]
     [Authorize(Roles = "Admin,Seller")]

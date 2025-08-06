@@ -37,4 +37,8 @@ public interface IProductService
     // Admin Operations
     Task<ProductDto> UpdateProductStatusAsync(Guid id, ProductStatus status);
     Task<ProductDto> ToggleProductActiveStatusAsync(Guid id);
+    
+    // Seller Profile Operations
+    Task<object> CreateSellerProfileAsync(Guid userId, string storeName);
+    Task<object?> GetSellerProfileByUserIdAsync(Guid userId);
 }
