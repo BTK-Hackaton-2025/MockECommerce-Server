@@ -141,7 +141,7 @@ public class ProductController : ControllerBase
 
     /// Ürün günceller (Seller - kendi ürünü, Admin - herhangi bir ürün)
     [HttpPut("{id}")]
-    [Authorize]
+    [Authorize(Roles = "Admin,Seller")]
     public async Task<IActionResult> UpdateProduct(Guid id, [FromBody] UpdateProductDto updateProductDto)
     {
         if (id == Guid.Empty)
@@ -153,22 +153,46 @@ public class ProductController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(new { success = false, message = "Geçersiz veri", errors = ModelState });
 
-        var sellerId = User.IsInRole("Admin") ? Guid.Empty : GetCurrentUserId();
-        var product = await _productService.UpdateProductAsync(updateProductDto, sellerId);
-        
-        return Ok(new { success = true, data = product });
+        // Admin kullanıcıları için özel güncelleme mantığı
+        if (User.IsInRole("Admin"))
+        {
+            var product = await _productService.UpdateProductAsAdminAsync(updateProductDto);
+            return Ok(new { success = true, data = product });
+        }
+        else
+        {
+            // Seller için normal güncelleme
+            var currentUserId = GetCurrentUserId();
+            if (currentUserId == Guid.Empty)
+                return BadRequest(new { success = false, message = "Geçersiz kullanıcı bilgisi" });
+                
+            var product = await _productService.UpdateProductAsync(updateProductDto, currentUserId);
+            return Ok(new { success = true, data = product });
+        }
     }
 
     /// Ürün siler (Seller - kendi ürünü, Admin - herhangi bir ürün)
     [HttpDelete("{id}")]
-    [Authorize]
+    [Authorize(Roles = "Admin,Seller")]
     public async Task<IActionResult> DeleteProduct(Guid id)
     {
         if (id == Guid.Empty)
             return BadRequest(new { success = false, message = "Geçersiz ürün ID'si" });
 
-        var sellerId = User.IsInRole("Admin") ? Guid.Empty : GetCurrentUserId();
-        await _productService.DeleteProductAsync(id, sellerId);
+        // Admin kullanıcıları için özel silme mantığı
+        if (User.IsInRole("Admin"))
+        {
+            await _productService.DeleteProductAsAdminAsync(id);
+        }
+        else
+        {
+            // Seller için normal silme
+            var currentUserId = GetCurrentUserId();
+            if (currentUserId == Guid.Empty)
+                return BadRequest(new { success = false, message = "Geçersiz kullanıcı bilgisi" });
+                
+            await _productService.DeleteProductAsync(id, currentUserId);
+        }
         
         return Ok(new { success = true, message = "Ürün başarıyla silindi" });
     }

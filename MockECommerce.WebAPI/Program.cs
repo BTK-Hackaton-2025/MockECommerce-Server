@@ -14,6 +14,7 @@ using MockECommerce.DAL.Entities;
 using MockECommerce.DAL.Repositories;
 using MockECommerce.WebAPI.Middlewares;
 using MockECommerce.WebAPI.Extensions;
+using MockECommerce.WebAPI.Filters;
 using DotNetEnv;
 
 // Load environment variables from .env file
@@ -272,31 +273,8 @@ builder.Services.AddSwaggerGen(options
         Description = "API Key for external endpoints. Enter your seller API key here."
     });
 
-    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-    {
-        {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] {}
-        },
-        {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "ApiKey"
-                }
-            },
-            new string[] {}
-        }
-    });
+    // Per-endpoint security requirement'lar için OperationFilter ekle
+    options.OperationFilter<SecurityRequirementsOperationFilter>();
 });
 
 var app = builder.Build();

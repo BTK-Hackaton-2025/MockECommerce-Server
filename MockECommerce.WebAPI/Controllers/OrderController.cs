@@ -46,7 +46,7 @@ public class OrderController : ControllerBase
     }
 
     /// <summary>
-    /// Create a new order
+    /// Create a new order (Simple Cart Checkout)
     /// </summary>
     [HttpPost]
     [Authorize]
@@ -55,6 +55,12 @@ public class OrderController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(new { success = false, message = "Invalid data", errors = ModelState });
 
+        // Get current user ID and set as customer
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == Guid.Empty)
+            return BadRequest(new { success = false, message = "Invalid user" });
+            
+        createOrderDto.CustomerId = currentUserId;
         var order = await _orderService.CreateOrderAsync(createOrderDto);
 
         return CreatedAtAction(nameof(GetOrderById), new { id = order.Id },
@@ -62,14 +68,38 @@ public class OrderController : ControllerBase
     }
 
     /// <summary>
-    /// Get orders by seller ID
+    /// Get my orders as a seller (kendi ürünlerim için gelen siparişler)
+    /// </summary>
+    [HttpGet("my-orders")]
+    [Authorize(Roles = "Seller")]
+    public async Task<IActionResult> GetMyOrdersAsSeller()
+    {
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == Guid.Empty)
+            return BadRequest(new { success = false, message = "Invalid user" });
+
+        var orders = await _orderService.GetOrdersBySellerUserIdAsync(currentUserId);
+        return Ok(new { success = true, data = orders });
+    }
+
+    /// <summary>
+    /// Get orders by seller ID (Admin or specific seller access)
     /// </summary>
     [HttpGet("seller/{sellerId}")]
-    [Authorize(Roles = "Seller")]
+    [Authorize(Roles = "Admin,Seller")]
     public async Task<IActionResult> GetOrdersBySellerId(Guid sellerId)
     {
         if (sellerId == Guid.Empty)
             return BadRequest(new { success = false, message = "Invalid seller ID" });
+
+        // Seller can only view their own orders, Admin can view any
+        if (User.IsInRole("Seller"))
+        {
+            var currentUserId = GetCurrentUserId();
+            var hasAccess = await _orderService.SellerHasAccessToSellerIdAsync(currentUserId, sellerId);
+            if (!hasAccess)
+                return Forbid();
+        }
 
         var orders = await _orderService.GetOrdersBySellerIdAsync(sellerId);
         return Ok(new { success = true, data = orders });
@@ -107,7 +137,22 @@ public class OrderController : ControllerBase
     }
 
     /// <summary>
-    /// Get orders by customer ID
+    /// Get my orders as a customer (benim verdiğim siparişler)
+    /// </summary>
+    [HttpGet("my-orders-as-customer")]
+    [Authorize]
+    public async Task<IActionResult> GetMyOrdersAsCustomer()
+    {
+        var currentUserId = GetCurrentUserId();
+        if (currentUserId == Guid.Empty)
+            return BadRequest(new { success = false, message = "Invalid user" });
+
+        var orders = await _orderService.GetOrdersByCustomerIdAsync(currentUserId);
+        return Ok(new { success = true, data = orders });
+    }
+
+    /// <summary>
+    /// Get orders by customer ID (Admin or specific customer access)
     /// </summary>
     [HttpGet("customer/{customerId}")]
     [Authorize]
@@ -115,6 +160,11 @@ public class OrderController : ControllerBase
     {
         if (customerId == Guid.Empty)
             return BadRequest(new { success = false, message = "Invalid customer ID" });
+
+        // Users can only view their own orders, Admin can view any
+        var currentUserId = GetCurrentUserId();
+        if (!User.IsInRole("Admin") && customerId != currentUserId)
+            return Forbid();
 
         var orders = await _orderService.GetOrdersByCustomerIdAsync(customerId);
         return Ok(new { success = true, data = orders });

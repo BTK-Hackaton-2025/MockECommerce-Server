@@ -79,8 +79,8 @@ public class ExternalProductController : ControllerBase
     {
         var sellerId = GetSellerIdFromClaims();
         
-        // Set the seller ID from the authenticated API key
-        var product = await _productService.CreateProductAsync(createProductDto, sellerId);
+        // Set the seller ID from the authenticated API key (using SellerProfile ID directly)
+        var product = await _productService.CreateProductBySellerIdAsync(createProductDto, sellerId);
         
         return CreatedAtAction(nameof(GetProductByIdAsync), new { productId = product.Id }, product);
     }
@@ -104,7 +104,7 @@ public class ExternalProductController : ControllerBase
         // Ensure the ID matches
         updateProductDto.Id = productId;
 
-        var updatedProduct = await _productService.UpdateProductAsync(updateProductDto, sellerId);
+        var updatedProduct = await _productService.UpdateProductBySellerIdAsync(updateProductDto, sellerId);
         return Ok(updatedProduct);
     }
 
@@ -124,7 +124,7 @@ public class ExternalProductController : ControllerBase
         if (existingProduct.SellerId != sellerId)
             return Forbid("You don't have access to this product");
 
-        await _productService.DeleteProductAsync(productId, sellerId);
+        await _productService.DeleteProductBySellerIdAsync(productId, sellerId);
         return NoContent();
     }
 

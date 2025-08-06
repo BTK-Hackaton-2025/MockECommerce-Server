@@ -169,6 +169,12 @@ public class AppDbContext
                       .WithMany()
                       .HasForeignKey(o => o.ProductId)
                       .OnDelete(DeleteBehavior.Restrict);
+
+                // ---------- 1-N  AppUser ↔ Order ----------
+                entity.HasOne(o => o.Customer)
+                      .WithMany()
+                      .HasForeignKey(o => o.CustomerId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
         }
 
